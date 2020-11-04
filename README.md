@@ -4,7 +4,8 @@
 
 1. View-directed steering
 2. Hand-directed steering
-3. Simple teleportation
+3. Smooth turn
+4. Simple teleportation
 
 ## Participation Exercise
 

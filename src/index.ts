@@ -17,15 +17,12 @@ import {MeshBuilder} from  "@babylonjs/core/Meshes/meshBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { LinesMesh } from "@babylonjs/core/Meshes/linesMesh";
 import { Ray } from "@babylonjs/core/Culling/ray";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh";
-import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { Axis } from "@babylonjs/core/Maths/math.axis";
+import { Quaternion } from "@babylonjs/core/Maths/math.vector";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/inspector";
-import { Axis } from "@babylonjs/core/Maths/math.axis";
-
 
 enum LocomotionMode
 {
@@ -108,7 +105,7 @@ class Game
         const environment = this.scene.createDefaultEnvironment({
             createGround: true,
             groundSize: 100,
-            skyboxSize: 100,
+            skyboxSize: 50,
             skyboxColor: new Color3(0, 0, 0)
         });
 
@@ -171,15 +168,15 @@ class Game
         blueMaterial.emissiveColor = new Color3(.284, .73, .831);
 
         // Create a column at a convenient place
-        var column = MeshBuilder.CreateBox("column", {width: 1, depth: 1, height: 3}, this.scene);
-        column.position = new Vector3(0, 1.5, 10);
+        var column = MeshBuilder.CreateBox("column", {width: 2, depth: 2, height: 5}, this.scene);
+        column.position = new Vector3(0, 2.5, 10);
         column.material = blueMaterial;
 
         // Create a simple locomotion testbed
-        for (let i=0; i < 50; i++)
+        for (let i=0; i < 30; i++)
         {
             let columnInstance = column.createInstance("column");
-            columnInstance.position = new Vector3(Math.random() * 30 - 15, 1.5, Math.random() * 30 - 15);
+            columnInstance.position = new Vector3(Math.random() * 25 - 12.5, 2.5, Math.random() * 25 - 12.5);
         }
         
         this.scene.debugLayer.show(); 
@@ -204,41 +201,56 @@ class Game
         // If we have an object that is currently attached to the laser pointer
         if(component?.changes.axes)
         {
-            // If the thumbstick is moved forward
-            if(component.axes.y < 0)
+
+            // View-directed steering
+            if(this.locomotionMode == LocomotionMode.viewDirected)
             {
-                // View-directed steering
-                if(this.locomotionMode == LocomotionMode.viewDirected)
-                {
-                    // Get the current camera direction
-                    var directionVector = this.xrCamera!.getDirection(Axis.Z);
+                // Get the current camera direction
+                var directionVector = this.xrCamera!.getDirection(Axis.Z);
 
-                    // Use delta time to calculate the move distance based on speed of 3 m/s
-                    var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
-                    
-                    // Translate the camera forward
-                    this.xrCamera!.position.addInPlace(directionVector.scale(moveDistance));
-                }
-                // Hand-directed steering
-                else if(this.locomotionMode == LocomotionMode.handDirected)
-                {
-                    // Get the current hand directon
-                    var directionVector = this.rightController!.pointer.forward;
+                // Use delta time to calculate the move distance based on speed of 3 m/sec
+                var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
+                
+                // Translate the camera forward
+                this.xrCamera!.position.addInPlace(directionVector.scale(moveDistance));
 
-                    // Use delta time to calculate the move distance based on speed of 3 m/s
-                    var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
-                    
-                    // Translate the camera in the direction of the hand
-                    this.xrCamera!.position.addInPlace(directionVector.scale(moveDistance));
-                }
-                // Teleportation
-                else
+                // Use delta time to calculate the turn angle based on speed of 60 degrees/sec
+                var turnAgle = component.axes.x * (this.engine.getDeltaTime() / 1000) * 60;
+
+                // Smooth turning
+                var cameraRotation = Quaternion.FromEulerAngles(0, turnAgle * Math.PI / 180, 0);
+                this.xrCamera!.rotationQuaternion.multiplyInPlace(cameraRotation);
+            }
+            // Hand-directed steering
+            else if(this.locomotionMode == LocomotionMode.handDirected)
+            {
+                // Get the current hand directon
+                var directionVector = this.rightController!.pointer.forward;
+
+                // Use delta time to calculate the move distance based on speed of 3 m/s
+                var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
+                
+                // Translate the camera in the direction of the hand
+                this.xrCamera!.position.addInPlace(directionVector.scale(moveDistance));
+
+                // Use delta time to calculate the turn angle based on speed of 60 degrees/sec
+                var turnAgle = component.axes.x * (this.engine.getDeltaTime() / 1000) * 60;
+
+                // Smooth turning
+                var cameraRotation = Quaternion.FromEulerAngles(0, turnAgle * Math.PI / 180, 0);
+                this.xrCamera!.rotationQuaternion.multiplyInPlace(cameraRotation);
+            }
+            // Teleportation
+            else 
+            {
+                // If the thumbstick is moved forward
+                if (component.axes.y < -.75)
                 {
                     // Create a new ray cast
                     var ray = new Ray(this.rightController!.pointer.position, this.rightController!.pointer.forward, 20);
                     var pickInfo = this.scene.pickWithRay(ray);
 
-                    // If we intersected a ground mesh
+                    // If the ray cast intersected a ground mesh
                     if(pickInfo?.hit && this.groundMeshes.includes(pickInfo.pickedMesh!))
                     {
                         this.teleportPoint = pickInfo.pickedPoint!;
@@ -249,18 +261,18 @@ class Game
                     {
                         this.teleportPoint = null;
                         this.laserPointer!.visibility = 0;
-                    }              
+                    }  
                 }
-            }
-            // If the thumbstick returns to rest and we have a valid teleport point
-            else if(component.axes.y == 0 && this.teleportPoint)
-            {
-                this.xrCamera!.position.x = this.teleportPoint.x;
-                this.xrCamera!.position.y = this.teleportPoint.y + this.xrCamera!.realWorldHeight;
-                this.xrCamera!.position.z = this.teleportPoint.z;
-                this.teleportPoint = null;
-                this.laserPointer!.visibility = 0;
-            }
+                // If the thumbstick returns to rest and we have a valid teleport point
+                else if(component.axes.y == 0 && this.teleportPoint)
+                {
+                    this.xrCamera!.position.x = this.teleportPoint.x;
+                    this.xrCamera!.position.y = this.teleportPoint.y + this.xrCamera!.realWorldHeight;
+                    this.xrCamera!.position.z = this.teleportPoint.z;
+                    this.teleportPoint = null;
+                    this.laserPointer!.visibility = 0;
+                }       
+            }                    
         }
     }
 
