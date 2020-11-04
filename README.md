@@ -1,5 +1,7 @@
 # Lecture 16: Virtual Locomotion
 
+Detailed explanation of this code can be found in the [lecture video](https://mediaspace.umn.edu/media/1_ur1xjz8j).
+
 ## Topics
 
 1. View-directed steering
@@ -9,7 +11,7 @@
 
 ## Participation Exercise
 
-The participation exercise for this lecture is posted on Canvas.
+There is no participation exercise for this lecture.
 
 ## License
 

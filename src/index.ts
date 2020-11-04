@@ -24,7 +24,7 @@ import { Quaternion } from "@babylonjs/core/Maths/math.vector";
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/inspector";
 
-enum LocomotionMode
+enum LocomotionMode 
 {
     viewDirected,
     handDirected,
@@ -45,7 +45,7 @@ class Game
     private laserPointer: LinesMesh | null;
     private groundMeshes: Array<AbstractMesh>;
     private teleportPoint: Vector3 | null;
-    
+
     constructor()
     {
         // Get the canvas element 
@@ -64,7 +64,7 @@ class Game
         this.locomotionMode = LocomotionMode.viewDirected;
         this.laserPointer = null;
         this.groundMeshes = [];
-        this.teleportPoint = null;
+        this.teleportPoint = null;  
     }
 
     start() : void 
@@ -113,7 +113,6 @@ class Game
         environment!.skybox!.isPickable = false;
 
         // The ground should be pickable for teleportation
-        environment!.ground!.isPickable = true;
         this.groundMeshes.push(environment!.ground!);
 
         // Creates the XR experience helper
@@ -198,10 +197,8 @@ class Game
 
     private onRightThumbstick(component?: WebXRControllerComponent)
     {
-        // If we have an object that is currently attached to the laser pointer
         if(component?.changes.axes)
         {
-
             // View-directed steering
             if(this.locomotionMode == LocomotionMode.viewDirected)
             {
@@ -210,41 +207,40 @@ class Game
 
                 // Use delta time to calculate the move distance based on speed of 3 m/sec
                 var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
-                
+
                 // Translate the camera forward
                 this.xrCamera!.position.addInPlace(directionVector.scale(moveDistance));
 
                 // Use delta time to calculate the turn angle based on speed of 60 degrees/sec
-                var turnAgle = component.axes.x * (this.engine.getDeltaTime() / 1000) * 60;
+                var turnAngle = component.axes.x * (this.engine.getDeltaTime() / 1000) * 60;
 
                 // Smooth turning
-                var cameraRotation = Quaternion.FromEulerAngles(0, turnAgle * Math.PI / 180, 0);
+                var cameraRotation = Quaternion.FromEulerAngles(0, turnAngle * Math.PI / 180, 0);
                 this.xrCamera!.rotationQuaternion.multiplyInPlace(cameraRotation);
             }
-            // Hand-directed steering
             else if(this.locomotionMode == LocomotionMode.handDirected)
             {
-                // Get the current hand directon
+                // Get the current hand direction
                 var directionVector = this.rightController!.pointer.forward;
 
-                // Use delta time to calculate the move distance based on speed of 3 m/s
+                // Use delta time to calculate the move distance based on speed of 3 m/sec
                 var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
-                
-                // Translate the camera in the direction of the hand
+
+                // Translate the camera forward
                 this.xrCamera!.position.addInPlace(directionVector.scale(moveDistance));
 
                 // Use delta time to calculate the turn angle based on speed of 60 degrees/sec
-                var turnAgle = component.axes.x * (this.engine.getDeltaTime() / 1000) * 60;
+                var turnAngle = component.axes.x * (this.engine.getDeltaTime() / 1000) * 60;
 
                 // Smooth turning
-                var cameraRotation = Quaternion.FromEulerAngles(0, turnAgle * Math.PI / 180, 0);
+                var cameraRotation = Quaternion.FromEulerAngles(0, turnAngle * Math.PI / 180, 0);
                 this.xrCamera!.rotationQuaternion.multiplyInPlace(cameraRotation);
             }
             // Teleportation
-            else 
+            else
             {
                 // If the thumbstick is moved forward
-                if (component.axes.y < -.75)
+                if(component.axes.y < -.75)
                 {
                     // Create a new ray cast
                     var ray = new Ray(this.rightController!.pointer.position, this.rightController!.pointer.forward, 20);
@@ -253,29 +249,36 @@ class Game
                     // If the ray cast intersected a ground mesh
                     if(pickInfo?.hit && this.groundMeshes.includes(pickInfo.pickedMesh!))
                     {
-                        this.teleportPoint = pickInfo.pickedPoint!;
+                        this.teleportPoint = pickInfo.pickedPoint;
                         this.laserPointer!.scaling.z = pickInfo.distance;
                         this.laserPointer!.visibility = 1;
-                    }      
+                    }
                     else
                     {
                         this.teleportPoint = null;
                         this.laserPointer!.visibility = 0;
-                    }  
+                    }
                 }
-                // If the thumbstick returns to rest and we have a valid teleport point
-                else if(component.axes.y == 0 && this.teleportPoint)
+                // If thumbstick returns to the rest position
+                else if(component.axes.y == 0)
                 {
-                    this.xrCamera!.position.x = this.teleportPoint.x;
-                    this.xrCamera!.position.y = this.teleportPoint.y + this.xrCamera!.realWorldHeight;
-                    this.xrCamera!.position.z = this.teleportPoint.z;
-                    this.teleportPoint = null;
                     this.laserPointer!.visibility = 0;
-                }       
-            }                    
+
+                    // If we have a valid targer point, then teleport the user
+                    if(this.teleportPoint)
+                    {
+                        this.xrCamera!.position.x = this.teleportPoint.x;
+                        this.xrCamera!.position.y = this.teleportPoint.y + this.xrCamera!.realWorldHeight;
+                        this.xrCamera!.position.z = this.teleportPoint.z;
+                        this.teleportPoint = null;
+                    }
+                }
+            }
+            
         }
     }
 
+    // Toggle for locomotion mode
     private onRightA(component?: WebXRControllerComponent)
     {  
         if(component?.changes.pressed?.current)
@@ -288,7 +291,7 @@ class Game
             {
                 this.locomotionMode += 1;
             }
-        }  
+        }
     }
 }
 /******* End of the Game class ******/   
